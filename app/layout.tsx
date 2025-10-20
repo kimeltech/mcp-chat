@@ -14,18 +14,25 @@ import "@/lib/crypto-polyfill";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://mcpchat.scira.ai"),
+  metadataBase: new URL("https://chat.ecosemantic.com"),
   title: "EcoSemantic MCP Chat",
   description:
     "AI-powered environmental impact analysis with Model Context Protocol. Multi-model support and LCA tools integration.",
+  icons: {
+    icon: [
+      { url: '/logo.svg', type: 'image/svg+xml' },
+    ],
+    apple: '/apple-icon.png',
+  },
+  manifest: '/manifest.json',
   openGraph: {
     siteName: "EcoSemantic MCP Chat",
-    url: "https://mcpchat.scira.ai",
+    url: "https://chat.ecosemantic.com",
     images: [
       {
-        url: "https://mcpchat.scira.ai/opengraph-image.png",
-        width: 1200,
-        height: 630,
+        url: "https://chat.ecosemantic.com/logo.svg",
+        width: 358,
+        height: 651,
       },
     ],
   },
@@ -34,7 +41,7 @@ export const metadata: Metadata = {
     title: "EcoSemantic MCP Chat",
     description:
       "AI-powered environmental impact analysis with Model Context Protocol. Multi-model support and LCA tools integration.",
-    images: ["https://mcpchat.scira.ai/twitter-image.png"],
+    images: ["https://chat.ecosemantic.com/logo.svg"],
   },
 };
 

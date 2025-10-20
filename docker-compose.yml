@@ -24,7 +24,7 @@ services:
     container_name: mcp-chat-app
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "8888:3000"
     environment:
       DATABASE_URL: postgresql://mcpuser:mcppassword@postgres:5432/mcpchat
       NODE_ENV: production
