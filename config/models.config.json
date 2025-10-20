@@ -1,0 +1,120 @@
+{
+  "$schema": "./models.schema.json",
+  "version": "1.0.0",
+  "defaultModel": "or-claude-haiku-4.5",
+  "models": [
+    {
+      "id": "or-gpt-4o-mini",
+      "name": "GPT-4o Mini",
+      "provider": "OpenAI",
+      "modelId": "openai/gpt-4o-mini",
+      "description": "Fast, efficient, and affordable. Great for everyday tasks.",
+      "capabilities": ["Tools", "Vision", "Streaming"],
+      "enabled": false
+    },
+    {
+      "id": "or-gpt-4o",
+      "name": "GPT-4o",
+      "provider": "OpenAI",
+      "modelId": "openai/gpt-4o",
+      "description": "OpenAI's flagship multimodal model with excellent tool calling.",
+      "capabilities": ["Tools", "Vision", "Streaming"],
+      "enabled": false
+    },
+    {
+      "id": "or-claude-sonnet-4",
+      "name": "Claude Sonnet 4",
+      "provider": "Anthropic",
+      "modelId": "anthropic/claude-sonnet-4",
+      "description": "Anthropic's flagship model with excellent coding and reasoning.",
+      "capabilities": ["Tools", "Vision", "Streaming"],
+      "enabled": false
+    },
+    {
+      "id": "or-claude-sonnet-3.7",
+      "name": "Claude 3.7 Sonnet",
+      "provider": "Anthropic",
+      "modelId": "anthropic/claude-3.7-sonnet:thinking",
+      "description": "Claude 3.7 with extended thinking capabilities.",
+      "capabilities": ["Tools", "Vision", "Reasoning", "Streaming"],
+      "enabled": false
+    },
+    {
+      "id": "or-claude-haiku-4.5",
+      "name": "Claude Haiku 4.5",
+      "provider": "Anthropic",
+      "modelId": "anthropic/claude-haiku-4.5",
+      "description": "Fast and efficient Claude model. Great for high-volume tasks.",
+      "capabilities": ["Tools", "Vision", "Reasoning", "Streaming"],
+      "enabled": true
+    },
+    {
+      "id": "or-glm-4.6",
+      "name": "GLM-4.6",
+      "provider": "Z-AI",
+      "modelId": "z-ai/glm-4.6",
+      "description": "Advanced agentic model with 200K context. Excellent for coding and tool use.",
+      "capabilities": ["Tools", "Reasoning", "Streaming"],
+      "enabled": false
+    },
+    {
+      "id": "or-qwen3-235b",
+      "name": "Qwen3 235B",
+      "provider": "Qwen",
+      "modelId": "qwen/qwen3-235b-a22b",
+      "description": "Large Qwen model with strong reasoning and coding abilities.",
+      "capabilities": ["Tools", "Reasoning", "Streaming"],
+      "enabled": false
+    },
+    {
+      "id": "or-deepseek-r1",
+      "name": "DeepSeek R1",
+      "provider": "DeepSeek",
+      "modelId": "deepseek/deepseek-r1",
+      "description": "Full-featured DeepSeek R1 without rate limits. Advanced reasoning.",
+      "capabilities": ["Tools", "Reasoning", "Streaming"],
+      "enabled": false
+    },
+    {
+      "id": "or-deepseek-chat",
+      "name": "DeepSeek Chat V3",
+      "provider": "DeepSeek",
+      "modelId": "deepseek/deepseek-chat",
+      "description": "Efficient conversational model with strong coding abilities.",
+      "capabilities": ["Tools", "Streaming"],
+      "enabled": true
+    },
+    {
+      "id": "or-gemini-2.5-flash",
+      "name": "Gemini 2.5 Flash",
+      "provider": "Google",
+      "modelId": "google/gemini-2.5-flash",
+      "description": "Fast and efficient Google model with multimodal capabilities.",
+      "capabilities": ["Tools", "Vision", "Reasoning", "Streaming"],
+      "enabled": true
+    },
+    {
+      "id": "or-llama-3.3-70b",
+      "name": "Llama 3.3 70B",
+      "provider": "Meta",
+      "modelId": "meta-llama/llama-3.3-70b-instruct",
+      "description": "Meta's powerful 70B parameter model with strong general capabilities.",
+      "capabilities": ["Tools", "Streaming"],
+      "enabled": true
+    },
+    {
+      "id": "or-openai-gpt-5-mini",
+      "name": "OpenAI: GPT-5 Mini",
+      "provider": "OpenAI",
+      "modelId": "openai/gpt-5-mini",
+      "description": "GPT-5 Mini is a compact version of GPT-5, designed to handle lighter-weight reasoning tasks. It provides the same instruction-following and safety-tuning benefits as GPT-5, but with reduced latency and cost. GPT-5 Mini is the successor to OpenAI's o4-mini model.",
+      "capabilities": [
+        "Tools",
+        "Vision",
+        "Reasoning",
+        "Streaming"
+      ],
+      "enabled": true
+    }
+  ]
+}

@@ -33,7 +33,6 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import Image from "next/image";
 import { MCPServerManager } from "./mcp-server-manager";
 import { ApiKeyManager } from "./api-key-manager";
 import { ThemeToggle } from "./theme-toggle";
@@ -64,6 +63,7 @@ import { Label } from "@/components/ui/label";
 import { useMCP } from "@/lib/context/mcp-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatePresence, motion } from "motion/react";
+import { Logo } from "./logo";
 
 export function ChatSidebar() {
   const router = useRouter();
@@ -169,25 +169,10 @@ export function ChatSidebar() {
               isCollapsed ? "justify-center w-full" : ""
             }`}
           >
-            <div
-              className={`relative rounded-full bg-primary/70 flex items-center justify-center ${
-                isCollapsed ? "size-5 p-3" : "size-6"
-              }`}
-            >
-              <Image
-                src="/scira.png"
-                alt="Scira Logo"
-                width={24}
-                height={24}
-                className="absolute transform scale-75"
-                unoptimized
-                quality={100}
-              />
-            </div>
-            {!isCollapsed && (
-              <div className="font-semibold text-lg text-foreground/90">
-                MCP
-              </div>
+            {isCollapsed ? (
+              <Logo size={20} showText={false} />
+            ) : (
+              <Logo size={24} showText={true} />
             )}
           </div>
         </div>
@@ -481,16 +466,7 @@ export function ChatSidebar() {
                   }}
                 >
                   <Key className="mr-2 h-4 w-4 hover:text-sidebar-accent" />
-                  API Keys
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    window.open("https://git.new/s-mcp", "_blank");
-                  }}
-                >
-                  <Github className="mr-2 h-4 w-4 hover:text-sidebar-accent" />
-                  GitHub
+                  OpenRouter API Key
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                   <div className="flex items-center justify-between w-full">

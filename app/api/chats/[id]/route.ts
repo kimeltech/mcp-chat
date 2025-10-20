@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 import { getChatById, deleteChat } from "@/lib/chat-store";
-import { checkBotId } from "botid/server";
+// import { checkBotId } from "botid/server"; // Disabled for local deployment
 
-interface Params {
-  params: {
-    id: string;
-  };
-}
-
-export async function GET(request: Request, { params }: Params) {
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const userId = request.headers.get('x-user-id');
 
@@ -36,7 +33,10 @@ export async function GET(request: Request, { params }: Params) {
   }
 }
 
-export async function DELETE(request: Request, { params }: Params) {
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const userId = request.headers.get('x-user-id');
 

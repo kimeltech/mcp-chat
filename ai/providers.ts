@@ -1,11 +1,6 @@
-import { createGroq } from "@ai-sdk/groq";
-import { createXai } from "@ai-sdk/xai";
-
-import {
-  customProvider,
-  wrapLanguageModel,
-  extractReasoningMiddleware
-} from "ai";
+import { createOpenRouter, openrouter } from "@openrouter/ai-sdk-provider";
+import { getEnabledModels, getDefaultModelId } from "@/config/models.loader";
+import type { ModelConfig } from "@/config/models.types";
 
 export interface ModelInfo {
   provider: string;
@@ -15,14 +10,10 @@ export interface ModelInfo {
   capabilities: string[];
 }
 
-const middleware = extractReasoningMiddleware({
-  tagName: 'think',
-});
-
 // Helper to get API keys from environment variables first, then localStorage
 const getApiKey = (key: string): string | undefined => {
   // Check for environment variables first
-  if (process.env[key]) {
+  if (typeof process !== 'undefined' && process.env && process.env[key]) {
     return process.env[key] || undefined;
   }
 
@@ -34,73 +25,48 @@ const getApiKey = (key: string): string | undefined => {
   return undefined;
 };
 
-const groqClient = createGroq({
-  apiKey: getApiKey('GROQ_API_KEY'),
+export const openrouterClient = createOpenRouter({
+  apiKey: getApiKey('OPENROUTER_API_KEY'),
 });
 
-const xaiClient = createXai({
-  apiKey: getApiKey('XAI_API_KEY'),
+// Export the default openrouter instance as well
+export { openrouter };
+
+// Load models from configuration at build time
+const enabledModels = getEnabledModels();
+
+// Build openRouterModels registry
+export const openRouterModels: Record<string, string> = {};
+enabledModels.forEach((model: ModelConfig) => {
+  openRouterModels[model.id] = model.modelId;
 });
 
-const languageModels = {
-  "qwen3-32b": wrapLanguageModel(
-    {
-      model: groqClient('qwen/qwen3-32b'),
-      middleware
-    }
-  ),
-  "grok-3-mini": xaiClient("grok-3-mini-latest"),
-  "kimi-k2": groqClient('moonshotai/kimi-k2-instruct'),
-  "llama4": groqClient('meta-llama/llama-4-scout-17b-16e-instruct')
-};
-
-export const modelDetails: Record<keyof typeof languageModels, ModelInfo> = {
-  "kimi-k2": {
-    provider: "Groq",
-    name: "Kimi K2",
-    description: "Latest version of Moonshot AI's Kimi K2 with good balance of capabilities.",
-    apiVersion: "kimi-k2-instruct",
-    capabilities: ["Balanced", "Efficient", "Agentic"]
-  },
-  "qwen3-32b": {
-    provider: "Groq",
-    name: "Qwen 3 32B",
-    description: "Latest version of Alibaba's Qwen 32B with strong reasoning and coding capabilities.",
-    apiVersion: "qwen3-32b",
-    capabilities: ["Reasoning", "Efficient", "Agentic"]
-  },
-  "grok-3-mini": {
-    provider: "XAI",
-    name: "Grok 3 Mini",
-    description: "Latest version of XAI's Grok 3 Mini with strong reasoning and coding capabilities.",
-    apiVersion: "grok-3-mini-latest",
-    capabilities: ["Reasoning", "Efficient", "Agentic"]
-  },
-  "llama4": {
-    provider: "Groq",
-    name: "Llama 4",
-    description: "Latest version of Meta's Llama 4 with good balance of capabilities.",
-    apiVersion: "llama-4-scout-17b-16e-instruct",
-    capabilities: ["Balanced", "Efficient", "Agentic"]
-  }
-};
+// Build modelDetails registry
+export const modelDetails: Record<string, ModelInfo> = {};
+enabledModels.forEach((model: ModelConfig) => {
+  modelDetails[model.id] = {
+    provider: model.provider,
+    name: model.name,
+    description: model.description,
+    apiVersion: model.modelId,
+    capabilities: model.capabilities,
+  };
+});
 
 // Update API keys when localStorage changes (for runtime updates)
 if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (event) => {
-    // Reload the page if any API key changed to refresh the providers
-    if (event.key?.includes('API_KEY')) {
-      window.location.reload();
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'OPENROUTER_API_KEY') {
+      // Recreate the client with new API key
+      location.reload();
     }
   });
 }
 
-export const model = customProvider({
-  languageModels,
-});
+export type modelID = string;
 
-export type modelID = keyof typeof languageModels;
+// Get list of model IDs
+export const MODELS = Object.keys(openRouterModels);
 
-export const MODELS = Object.keys(languageModels);
-
-export const defaultModel: modelID = "kimi-k2";
+// Get default model from config
+export const defaultModel: modelID = getDefaultModelId();

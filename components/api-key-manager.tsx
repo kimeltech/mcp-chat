@@ -12,111 +12,47 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-// API key configuration
-interface ApiKeyConfig {
-  name: string;
-  key: string;
-  storageKey: string;
-  label: string;
-  placeholder: string;
-}
-
-// Available API keys configuration
-const API_KEYS_CONFIG: ApiKeyConfig[] = [
-  {
-    name: "OpenAI",
-    key: "openai",
-    storageKey: "OPENAI_API_KEY",
-    label: "OpenAI API Key",
-    placeholder: "sk-...",
-  },
-  {
-    name: "Anthropic",
-    key: "anthropic",
-    storageKey: "ANTHROPIC_API_KEY",
-    label: "Anthropic API Key",
-    placeholder: "sk-ant-...",
-  },
-  {
-    name: "Groq",
-    key: "groq",
-    storageKey: "GROQ_API_KEY",
-    label: "Groq API Key",
-    placeholder: "gsk_...",
-  },
-  {
-    name: "XAI",
-    key: "xai",
-    storageKey: "XAI_API_KEY",
-    label: "XAI API Key",
-    placeholder: "xai-...",
-  },
-];
-
 interface ApiKeyManagerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 export function ApiKeyManager({ open, onOpenChange }: ApiKeyManagerProps) {
-  // State to store API keys
-  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
+  const [apiKey, setApiKey] = useState<string>("");
 
-  // Load API keys from localStorage on initial mount
+  // Load API key from localStorage on mount
   useEffect(() => {
-    const storedKeys: Record<string, string> = {};
+    const storedKey = localStorage.getItem("OPENROUTER_API_KEY");
+    if (storedKey) {
+      setApiKey(storedKey);
+    }
+  }, [open]);
 
-    API_KEYS_CONFIG.forEach((config) => {
-      const value = localStorage.getItem(config.storageKey);
-      if (value) {
-        storedKeys[config.key] = value;
-      }
-    });
-
-    setApiKeys(storedKeys);
-  }, []);
-
-  // Update API key in state
-  const handleApiKeyChange = (key: string, value: string) => {
-    setApiKeys((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
-
-  // Save API keys to localStorage
-  const handleSaveApiKeys = () => {
+  // Save API key to localStorage
+  const handleSaveApiKey = () => {
     try {
-      API_KEYS_CONFIG.forEach((config) => {
-        const value = apiKeys[config.key];
-
-        if (value && value.trim()) {
-          localStorage.setItem(config.storageKey, value.trim());
-        } else {
-          localStorage.removeItem(config.storageKey);
-        }
-      });
-
-      toast.success("API keys saved successfully");
-      onOpenChange(false);
+      if (apiKey && apiKey.trim()) {
+        localStorage.setItem("OPENROUTER_API_KEY", apiKey.trim());
+        toast.success("OpenRouter API key saved successfully");
+        onOpenChange(false);
+      } else {
+        toast.error("Please enter a valid API key");
+      }
     } catch (error) {
-      console.error("Error saving API keys:", error);
-      toast.error("Failed to save API keys");
+      console.error("Error saving API key:", error);
+      toast.error("Failed to save API key");
     }
   };
 
-  // Clear all API keys
-  const handleClearApiKeys = () => {
+  // Clear API key
+  const handleClearApiKey = () => {
     try {
-      API_KEYS_CONFIG.forEach((config) => {
-        localStorage.removeItem(config.storageKey);
-      });
-
-      setApiKeys({});
-      toast.success("All API keys cleared");
+      localStorage.removeItem("OPENROUTER_API_KEY");
+      setApiKey("");
+      toast.success("API key cleared");
     } catch (error) {
-      console.error("Error clearing API keys:", error);
-      toast.error("Failed to clear API keys");
+      console.error("Error clearing API key:", error);
+      toast.error("Failed to clear API key");
     }
   };
 
@@ -124,37 +60,52 @@ export function ApiKeyManager({ open, onOpenChange }: ApiKeyManagerProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>API Key Settings</DialogTitle>
+          <DialogTitle>OpenRouter API Key</DialogTitle>
           <DialogDescription>
-            Enter your own API keys for different AI providers. Keys are stored
-            securely in your browser&apos;s local storage.
+            Enter your OpenRouter API key to use different AI models. 
+            Get your key at{" "}
+            <a 
+              href="https://openrouter.ai/keys" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-primary hover:underline"
+            >
+              openrouter.ai/keys
+            </a>
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-          {API_KEYS_CONFIG.map((config) => (
-            <div key={config.key} className="grid gap-2">
-              <Label htmlFor={config.key}>{config.label}</Label>
-              <Input
-                id={config.key}
-                type="password"
-                value={apiKeys[config.key] || ""}
-                onChange={(e) => handleApiKeyChange(config.key, e.target.value)}
-                placeholder={config.placeholder}
-              />
-            </div>
-          ))}
+          <div className="grid gap-2">
+            <Label htmlFor="openrouter-key">API Key</Label>
+            <Input
+              id="openrouter-key"
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="sk-or-v1-..."
+            />
+            <p className="text-xs text-muted-foreground">
+              Your key is stored securely in your browser&apos;s local storage.
+            </p>
+          </div>
         </div>
 
         <DialogFooter className="flex justify-between sm:justify-between">
-          <Button variant="destructive" onClick={handleClearApiKeys}>
-            Clear All Keys
+          <Button 
+            variant="destructive" 
+            onClick={handleClearApiKey}
+            disabled={!apiKey}
+          >
+            Clear Key
           </Button>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveApiKeys}>Save Keys</Button>
+            <Button onClick={handleSaveApiKey} disabled={!apiKey.trim()}>
+              Save Key
+            </Button>
           </div>
         </DialogFooter>
       </DialogContent>

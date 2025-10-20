@@ -182,7 +182,9 @@ export function MCPProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      console.log('[startServer] Server config:', { url: server.url, headers: server.headers });
       const healthResult = await checkServerHealth(server.url, server.headers);
+      console.log('[startServer] Health check result:', healthResult);
       
       if (healthResult.ready && healthResult.tools) {
         updateServerWithTools(serverId, healthResult.tools, "connected");

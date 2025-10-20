@@ -5,19 +5,21 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Menu } from "lucide-react";
 import { Providers } from "./providers";
 import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next"
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import Script from "next/script";
 import "./globals.css";
-import { BotIdClient } from "botid/client";
+import "@/lib/crypto-polyfill";
+// import { BotIdClient } from "botid/client";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://mcpchat.scira.ai"),
-  title: "Scira MCP Chat",
+  title: "EcoSemantic MCP Chat",
   description:
-    "Scira MCP Chat is a minimalistic MCP client with a good feature set.",
+    "AI-powered environmental impact analysis with Model Context Protocol. Multi-model support and LCA tools integration.",
   openGraph: {
-    siteName: "Scira MCP Chat",
+    siteName: "EcoSemantic MCP Chat",
     url: "https://mcpchat.scira.ai",
     images: [
       {
@@ -29,9 +31,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Scira MCP Chat",
+    title: "EcoSemantic MCP Chat",
     description:
-      "Scira MCP Chat is a minimalistic MCP client with a good feature set.",
+      "AI-powered environmental impact analysis with Model Context Protocol. Multi-model support and LCA tools integration.",
     images: ["https://mcpchat.scira.ai/twitter-image.png"],
   },
 };
@@ -44,16 +46,18 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <BotIdClient
+        {/* BotIdClient disabled for local deployment */}
+        {/* <BotIdClient
           protect={[
             {
               path: "/api/chat",
               method: "POST",
             }
           ]}
-        />
+        /> */}
       </head>
       <body className={`${inter.className}`}>
+        <Script src="/crypto-polyfill.js" strategy="beforeInteractive" />
         <Providers>
           <div className="flex h-dvh w-full">
             <ChatSidebar />

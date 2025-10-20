@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getChats } from "@/lib/chat-store";
-import { checkBotId } from "botid/server";
+// import { checkBotId } from "botid/server"; // Disabled for local deployment
 
 export async function GET(request: Request) {
   try {
