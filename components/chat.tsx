@@ -112,6 +112,7 @@ export default function Chat() {
         mcpServers: mcpServersForApi,
         chatId: chatId || generatedChatId, // Use generated ID if no chatId in URL
         userId,
+        apiKey: typeof window !== 'undefined' ? localStorage.getItem('OPENROUTER_API_KEY') || undefined : undefined,
       },
       experimental_throttle: 100,
       onFinish: () => {

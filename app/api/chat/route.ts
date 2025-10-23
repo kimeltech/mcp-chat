@@ -1,4 +1,5 @@
 import { openrouter, openRouterModels, type modelID } from "@/ai/providers";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { smoothStream, streamText, type UIMessage } from "ai";
 import { appendResponseMessages } from 'ai';
 import { saveChat, saveMessages, convertToDBMessages } from '@/lib/chat-store';
@@ -17,12 +18,14 @@ export async function POST(req: Request) {
     selectedModel,
     userId,
     mcpServers = [],
+    apiKey,
   }: {
     messages: UIMessage[];
     chatId?: string;
     selectedModel: modelID;
     userId: string;
     mcpServers?: MCPServerConfig[];
+    apiKey?: string;
   } = await req.json();
 
   // Disabled botid check for now
@@ -114,7 +117,22 @@ Multiple tools can be used in a single response and multiple steps can be used t
 - If you don't know the answer, use the tools to find the answer or say you don't know.`;
 
   // Use OpenRouter model directly
-  const selectedLanguageModel = openrouter(openRouterModels[selectedModel]);
+  // Use provided API key from request body, or fall back to environment variable
+  const effectiveApiKey = apiKey || process.env.OPENROUTER_API_KEY;
+  
+  if (!effectiveApiKey) {
+    return new Response(
+      JSON.stringify({ error: "OpenRouter API key is required. Please add it in the settings or set OPENROUTER_API_KEY environment variable." }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  
+  // Create OpenRouter client with the effective API key
+  const openrouterClient = createOpenRouter({
+    apiKey: effectiveApiKey,
+  });
+  
+  const selectedLanguageModel = openrouterClient(openRouterModels[selectedModel]);
 
   const result = streamText({
     model: selectedLanguageModel,
