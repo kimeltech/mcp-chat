@@ -27,8 +27,19 @@ import {
   AlertTriangle,
   RefreshCw,
   Power,
+  Key,
+  Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
+import { MCPOAuth2Client } from "@/lib/oauth2-client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import {
   Accordion,
   AccordionContent,
@@ -58,6 +69,7 @@ const INITIAL_NEW_SERVER: Omit<MCPServer, "id"> = {
   args: [],
   env: [],
   headers: [],
+  authType: "oauth2", // ✅ Default to OAuth2 auth
 };
 
 interface MCPServerManagerProps {
@@ -250,6 +262,11 @@ export const MCPServerManager = ({
   );
   const [editedEnvValue, setEditedEnvValue] = useState<string>("");
   const [editedHeaderValue, setEditedHeaderValue] = useState<string>("");
+  
+  // OAuth2 state
+  const [authType, setAuthType] = useState<'bearer' | 'oauth2'>('oauth2'); // ✅ Default to OAuth2
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [oauth2Scopes, setOAuth2Scopes] = useState<string>('lca:read lca:write');
 
   // Add access to the MCP context for server control
   const { startServer, stopServer, updateServerStatus } = useMCP();
@@ -278,12 +295,17 @@ export const MCPServerManager = ({
     }
 
     const id = crypto.randomUUID();
-    const updatedServers = [...servers, { ...newServer, id }];
+    const updatedServers = [...servers, { 
+      ...newServer, 
+      id,
+      authType: authType, // Include the selected auth type
+    }];
     onServersChange(updatedServers);
 
     toast.success(`Added MCP server: ${newServer.name}`);
     setView("list");
     setNewServer(INITIAL_NEW_SERVER);
+    setAuthType('bearer'); // Reset auth type
     setNewEnvVar({ key: "", value: "" });
     setNewHeader({ key: "", value: "" });
     setShowSensitiveEnvValues({});
@@ -463,6 +485,59 @@ export const MCPServerManager = ({
       ...prev,
       [index]: !prev[index],
     }));
+  };
+
+  // OAuth2 handler
+  const handleOAuth2Setup = async () => {
+    if (!newServer.url) {
+      toast.error("Please enter a server URL first");
+      return;
+    }
+
+    if (!newServer.name) {
+      toast.error("Please enter a server name first");
+      return;
+    }
+
+    setIsAuthenticating(true);
+
+    try {
+      const scopes = oauth2Scopes.split(' ').filter(s => s.trim());
+      
+      const oauth2Client = new MCPOAuth2Client({
+        serverUrl: newServer.url,
+        scopes: scopes.length > 0 ? scopes : ['lca:read', 'lca:write'],
+      });
+
+      toast.info('Discovering OAuth2 configuration...');
+
+      // Step 1: Discover metadata
+      const metadata = await oauth2Client.discoverMetadata();
+      
+      toast.info('Registering client...');
+
+      // Step 2: Register client
+      await oauth2Client.registerClient(metadata);
+
+      // Step 3: Store configuration for callback
+      sessionStorage.setItem('oauth2_client_config', JSON.stringify({
+        serverUrl: newServer.url,
+        serverName: newServer.name,
+        serverType: newServer.type,
+        scopes: scopes,
+      }));
+
+      toast.info('Redirecting to authentication page...');
+
+      // Step 4: Initiate authorization (will redirect)
+      await oauth2Client.initiateAuthorization(metadata);
+    } catch (error) {
+      console.error('OAuth2 setup failed:', error);
+      setIsAuthenticating(false);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to initiate OAuth2: ${errorMessage}`);
+    }
   };
 
   const hasAdvancedConfig = (server: MCPServer) => {
@@ -930,6 +1005,91 @@ export const MCPServerManager = ({
                 </p>
               </div>
 
+              {/* Authentication Configuration */}
+              <div className="grid gap-1.5">
+                <Label htmlFor="auth-type">Authentication</Label>
+                <Select 
+                  value={authType} 
+                  onValueChange={(value) => setAuthType(value as 'bearer' | 'oauth2')}
+                >
+                  <SelectTrigger className="relative z-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bearer">
+                      <div className="flex items-center gap-2">
+                        <Key className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">Bearer Token</div>
+                          <div className="text-xs text-muted-foreground">Manual API key authentication</div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="oauth2">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">OAuth2</div>
+                          <div className="text-xs text-muted-foreground">Browser-based authorization</div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                {authType === 'oauth2' && (
+                  <div className="mt-3 space-y-3">
+                    <div className="p-3 bg-muted/50 rounded-md border">
+                      <div className="flex items-start gap-2 mb-2">
+                        <ShieldCheck className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        <div className="text-xs space-y-1">
+                          <p className="font-medium">OAuth2 Authentication</p>
+                          <p className="text-muted-foreground">
+                            You&apos;ll be redirected to authenticate via your browser. 
+                            The server will securely manage your access tokens.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="oauth2-scopes" className="text-xs">
+                        Scopes (space-separated)
+                      </Label>
+                      <Input
+                        id="oauth2-scopes"
+                        value={oauth2Scopes}
+                        onChange={(e) => setOAuth2Scopes(e.target.value)}
+                        placeholder="lca:read lca:write"
+                        className="h-8 relative z-0"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Permissions requested from the server
+                      </p>
+                    </div>
+
+                    <Button
+                      type="button"
+                      onClick={handleOAuth2Setup}
+                      disabled={isAuthenticating || !newServer.url || !newServer.name}
+                      className="w-full"
+                    >
+                      {isAuthenticating ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Authenticating...
+                        </>
+                      ) : (
+                        <>
+                          <Key className="mr-2 h-4 w-4" />
+                          Connect with OAuth2
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               {/* Advanced Configuration */}
               <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="env-vars">
@@ -1089,11 +1249,12 @@ export const MCPServerManager = ({
                   </AccordionContent>
                 </AccordionItem>
 
-                <AccordionItem value="headers">
-                  <AccordionTrigger className="text-sm py-2">
-                    HTTP Headers
-                  </AccordionTrigger>
-                  <AccordionContent>
+                {authType === 'bearer' && (
+                  <AccordionItem value="headers">
+                    <AccordionTrigger className="text-sm py-2">
+                      HTTP Headers
+                    </AccordionTrigger>
+                    <AccordionContent>
                     <div className="space-y-3">
                       <div className="flex items-end gap-2">
                         <div className="flex-1">
@@ -1247,6 +1408,7 @@ export const MCPServerManager = ({
                     </div>
                   </AccordionContent>
                 </AccordionItem>
+                )}
               </Accordion>
             </div>
           </div>

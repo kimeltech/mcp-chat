@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useRef } from "react";
 import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { OAuth2Tokens } from "@/lib/oauth2-client";
 
 export interface KeyValuePair {
   key: string;
@@ -39,12 +40,17 @@ export interface MCPServer {
   status?: ServerStatus;
   errorMessage?: string;
   tools?: MCPTool[];
+  // OAuth2 fields
+  authType?: 'bearer' | 'oauth2';
+  oauth2Tokens?: OAuth2Tokens;
 }
 
 export interface MCPServerApi {
   type: "sse" | "http";
   url: string;
   headers?: KeyValuePair[];
+  authType?: 'bearer' | 'oauth2';
+  oauth2Tokens?: OAuth2Tokens;
 }
 
 interface MCPContextType {
@@ -151,6 +157,8 @@ export function MCPProvider({ children }: { children: React.ReactNode }) {
         type: server.type,
         url: server.url,
         headers: server.headers,
+        authType: server.authType || 'bearer',
+        oauth2Tokens: server.oauth2Tokens,
       }));
   };
 
@@ -182,8 +190,20 @@ export function MCPProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      console.log('[startServer] Server config:', { url: server.url, headers: server.headers });
-      const healthResult = await checkServerHealth(server.url, server.headers);
+      // Prepare headers based on auth type
+      let headers: KeyValuePair[] | undefined = server.headers;
+      
+      if (server.authType === 'oauth2' && server.oauth2Tokens?.access_token) {
+        // For OAuth2, create Authorization header with access token
+        headers = [{
+          key: 'Authorization',
+          value: `Bearer ${server.oauth2Tokens.access_token}`
+        }];
+        console.log('[startServer] Using OAuth2 authentication');
+      }
+
+      console.log('[startServer] Server config:', { url: server.url, headers: headers });
+      const healthResult = await checkServerHealth(server.url, headers);
       console.log('[startServer] Health check result:', healthResult);
       
       if (healthResult.ready && healthResult.tools) {

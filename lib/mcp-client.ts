@@ -1,5 +1,6 @@
 import { experimental_createMCPClient as createMCPClient } from 'ai';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { OAuth2Tokens, MCPOAuth2Client, ensureValidAccessToken } from './oauth2-client';
 
 export interface KeyValuePair {
   key: string;
@@ -9,7 +10,11 @@ export interface KeyValuePair {
 export interface MCPServerConfig {
   url: string;
   type: 'sse' | 'http';
+  authType: 'bearer' | 'oauth2';
+  // For bearer token authentication
   headers?: KeyValuePair[];
+  // For OAuth2 authentication
+  oauth2Tokens?: OAuth2Tokens;
 }
 
 export interface MCPClientManager {
@@ -21,6 +26,7 @@ export interface MCPClientManager {
 /**
  * Initialize MCP clients for API calls
  * This uses the already running persistent HTTP or SSE servers
+ * Supports both bearer token and OAuth2 authentication
  */
 export async function initializeMCPClients(
   mcpServers: MCPServerConfig[] = [],
@@ -33,10 +39,51 @@ export async function initializeMCPClients(
   // Process each MCP server configuration
   for (const mcpServer of mcpServers) {
     try {
-      const headers = mcpServer.headers?.reduce((acc, header) => {
-        if (header.key) acc[header.key] = header.value || '';
-        return acc;
-      }, {} as Record<string, string>);
+      let headers: Record<string, string> = {};
+
+      // Handle authentication based on authType
+      if (mcpServer.authType === 'oauth2') {
+        // OAuth2 authentication
+        if (!mcpServer.oauth2Tokens) {
+          console.error(`OAuth2 configured but no tokens available for ${mcpServer.url}`);
+          continue;
+        }
+
+        // Create OAuth2 client and check token validity
+        const oauth2Client = new MCPOAuth2Client({
+          serverUrl: mcpServer.url,
+        });
+
+        // Restore tokens
+        oauth2Client.setTokens(
+          mcpServer.oauth2Tokens,
+          mcpServer.oauth2Tokens.client_id || ''
+        );
+
+        // Get valid access token (will refresh if needed)
+        try {
+          const accessToken = await ensureValidAccessToken(oauth2Client);
+          headers['Authorization'] = `Bearer ${accessToken}`;
+
+          // Update tokens if refreshed
+          const updatedTokens = oauth2Client.getTokens();
+          if (updatedTokens && updatedTokens !== mcpServer.oauth2Tokens) {
+            // Tokens were refreshed - update stored configuration
+            mcpServer.oauth2Tokens = updatedTokens;
+            // Note: Caller should persist updated tokens to storage
+            console.log(`Access token refreshed for ${mcpServer.url}`);
+          }
+        } catch (error) {
+          console.error(`Failed to get valid OAuth2 token for ${mcpServer.url}:`, error);
+          continue;
+        }
+      } else {
+        // Bearer token authentication (traditional headers)
+        headers = mcpServer.headers?.reduce((acc, header) => {
+          if (header.key) acc[header.key] = header.value || '';
+          return acc;
+        }, {} as Record<string, string>) || {};
+      }
 
       const transport = mcpServer.type === 'sse'
         ? {
