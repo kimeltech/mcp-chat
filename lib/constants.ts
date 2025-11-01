@@ -6,5 +6,7 @@
 export const STORAGE_KEYS = {
   MCP_SERVERS: "mcp-servers",
   SELECTED_MCP_SERVERS: "selected-mcp-servers",
-  SIDEBAR_STATE: "sidebar-state"
+  SIDEBAR_STATE: "sidebar-state",
+  AUTH_TOKEN: "ecosemantic-auth-token",
+  USER_INFO: "ecosemantic-user-info"
 }; 

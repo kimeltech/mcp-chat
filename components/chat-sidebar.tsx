@@ -159,7 +159,7 @@ export function ChatSidebar() {
 
   return (
     <Sidebar
-      className="shadow-sm bg-background/80 dark:bg-background/40 backdrop-blur-md"
+      className="shadow-sm bg-background border-r"
       collapsible="icon"
     >
       <SidebarHeader className="p-4 border-b border-border/40">
@@ -308,12 +308,26 @@ export function ChatSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => setMcpSettingsOpen(true)}
                   className={cn(
-                    "w-full flex items-center gap-2 transition-all",
-                    "hover:bg-secondary/50 active:bg-secondary/70"
+                    "w-full flex items-center gap-2 transition-all cursor-default",
+                    activeServersCount > 0 
+                      ? "hover:bg-primary/5" 
+                      : "hover:bg-secondary/30"
                   )}
-                  tooltip={isCollapsed ? "MCP Servers" : undefined}
+                  tooltip={
+                    isCollapsed 
+                      ? (activeServersCount > 0 
+                          ? `${activeServersCount} MCP Server${activeServersCount > 1 ? 's' : ''} Connected` 
+                          : "No MCP Servers Connected")
+                      : undefined
+                  }
+                  title={
+                    !isCollapsed 
+                      ? (activeServersCount > 0 
+                          ? `${activeServersCount} MCP Server${activeServersCount > 1 ? 's' : ''} Connected` 
+                          : "No MCP Servers Connected")
+                      : undefined
+                  }
                 >
                   <ServerIcon
                     className={cn(
@@ -331,14 +345,21 @@ export function ChatSidebar() {
                   {activeServersCount > 0 && !isCollapsed ? (
                     <Badge
                       variant="secondary"
-                      className="ml-auto text-[10px] px-1.5 py-0 h-5 bg-secondary/80"
+                      className="ml-auto text-[10px] px-1.5 py-0 h-5 bg-primary/20 text-primary border-primary/30"
                     >
-                      {activeServersCount}
+                      {activeServersCount} Connected
                     </Badge>
                   ) : activeServersCount > 0 && isCollapsed ? (
-                    <SidebarMenuBadge className="bg-secondary/80 text-secondary-foreground">
+                    <SidebarMenuBadge className="bg-primary/20 text-primary border-primary/30">
                       {activeServersCount}
                     </SidebarMenuBadge>
+                  ) : !isCollapsed ? (
+                    <Badge
+                      variant="outline"
+                      className="ml-auto text-[10px] px-1.5 py-0 h-5 text-muted-foreground"
+                    >
+                      Disconnected
+                    </Badge>
                   ) : null}
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -366,6 +387,8 @@ export function ChatSidebar() {
             </Button>
           </motion.div>
 
+          {/* User Menu Dropdown - HIDDEN FOR NOW */}
+          {false && (
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               {isCollapsed ? (
@@ -480,6 +503,7 @@ export function ChatSidebar() {
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
 
         <MCPServerManager

@@ -36,7 +36,14 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - default
+      - backend_central-network
 
 volumes:
   postgres_data:
     driver: local
+
+networks:
+  backend_central-network:
+    external: true

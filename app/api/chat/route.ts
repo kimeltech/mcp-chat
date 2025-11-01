@@ -9,7 +9,8 @@ import { chats } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { initializeMCPClients, type MCPServerConfig } from '@/lib/mcp-client';
 
-// import { checkBotId } from "botid/server";
+// Central API URL for token tracking
+const CENTRAL_API_URL = process.env.CENTRAL_API_URL || 'http://central-api:8880';
 
 export async function POST(req: Request) {
   const {
@@ -28,16 +29,6 @@ export async function POST(req: Request) {
     apiKey?: string;
   } = await req.json();
 
-  // Disabled botid check for now
-  // const { isBot, isGoodBot } = await checkBotId();
-
-  // if (isBot && !isGoodBot) {
-  //   return new Response(
-  //     JSON.stringify({ error: "Bot is not allowed to access this endpoint" }),
-  //     { status: 401, headers: { "Content-Type": "application/json" } }
-  //   );
-  // }
-
   if (!userId) {
     return new Response(
       JSON.stringify({ error: "User ID is required" }),
@@ -45,10 +36,72 @@ export async function POST(req: Request) {
     );
   }
 
+  // Get auth token from request headers
+  const authToken = req.headers.get('authorization');
+  if (!authToken) {
+    return new Response(
+      JSON.stringify({ error: "Authentication required" }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // STEP 1: Check token limit before processing
+  try {
+    // Estimate input tokens (rough: ~4 characters per token)
+    const messagesText = JSON.stringify(messages);
+    const estimatedInputTokens = Math.ceil(messagesText.length / 4);
+
+    console.log(`[Token Check] Estimated input tokens: ${estimatedInputTokens}`);
+
+    const checkResponse = await fetch(
+      `${CENTRAL_API_URL}/api/v1/mcp-chat/check-limit?estimated_input_tokens=${estimatedInputTokens}`,
+      {
+        headers: {
+          'Authorization': authToken,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (!checkResponse.ok) {
+      if (checkResponse.status === 429) {
+        const limitData = await checkResponse.json();
+        return new Response(
+          JSON.stringify({ 
+            error: "Token limit exceeded",
+            message: limitData.error_message || "You have reached your token limit.",
+            remaining: limitData.remaining_tokens || 0,
+            limit: limitData.limit || 0
+          }),
+          { status: 429, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Log but continue if token check fails (graceful degradation)
+      console.error('[Token Check] Failed to check token limit:', checkResponse.statusText);
+    } else {
+      const limitCheck = await checkResponse.json();
+      if (!limitCheck.can_proceed) {
+        return new Response(
+          JSON.stringify({ 
+            error: "Token limit exceeded",
+            message: limitCheck.error_message,
+            remaining: limitCheck.remaining_tokens,
+            limit: limitCheck.limit
+          }),
+          { status: 429, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      console.log(`[Token Check] ✓ Can proceed. Remaining: ${limitCheck.remaining_tokens}`);
+    }
+  } catch (error) {
+    // Log but continue if token check fails (graceful degradation)
+    console.error('[Token Check] Error checking token limit:', error);
+  }
+
   const id = chatId || nanoid();
 
-  // Check if chat already exists for the given ID
-  // If not, create it now
+  // Check if chat already exists
   let isNewChat = false;
   if (chatId) {
     try {
@@ -64,15 +117,12 @@ export async function POST(req: Request) {
       isNewChat = true;
     }
   } else {
-    // No ID provided, definitely new
     isNewChat = true;
   }
 
-  // If it's a new chat, save it immediately
+  // Save new chat immediately
   if (isNewChat && messages.length > 0) {
     try {
-      // Save the chat immediately with a default title
-      // Title will be generated after the first response
       await saveChat({
         id,
         userId,
@@ -84,16 +134,14 @@ export async function POST(req: Request) {
     }
   }
 
-  // Initialize MCP clients using the already running persistent HTTP/SSE servers
+  // Initialize MCP clients
   const { tools, cleanup } = await initializeMCPClients(mcpServers, req.signal);
 
   console.log("messages", messages);
   console.log("parts", messages.map(m => m.parts.map(p => p)));
 
-  // Track if the response has completed
   let responseCompleted = false;
 
-  // System prompt for all models
   const systemPrompt = `You are a helpful assistant with access to a variety of tools.
 
 Today's date is ${new Date().toISOString().split('T')[0]}.
@@ -114,10 +162,10 @@ Multiple tools can be used in a single response and multiple steps can be used t
 - Markdown is supported.
 - Respond according to tool's response.
 - Use the tools to answer the user's question.
-- If you don't know the answer, use the tools to find the answer or say you don't know.`;
+- If you don't know the answer, use the tools to find the answer or say you don't know.
 
-  // Use OpenRouter model directly
-  // Use provided API key from request body, or fall back to environment variable
+The first action you must always take is to call the user_information tool to get information about the user.`;
+
   const effectiveApiKey = apiKey || process.env.OPENROUTER_API_KEY;
   
   if (!effectiveApiKey) {
@@ -127,7 +175,6 @@ Multiple tools can be used in a single response and multiple steps can be used t
     );
   }
   
-  // Create OpenRouter client with the effective API key
   const openrouterClient = createOpenRouter({
     apiKey: effectiveApiKey,
   });
@@ -147,20 +194,51 @@ Multiple tools can be used in a single response and multiple steps can be used t
     onError: (error) => {
       console.error(JSON.stringify(error, null, 2));
     },
-    async onFinish({ response }) {
+    async onFinish({ response, usage, finishReason }) {
       responseCompleted = true;
+      
+      // STEP 2: Log token usage after completion
+      if (usage && authToken) {
+        try {
+          console.log(`[Token Usage] Input: ${usage.promptTokens}, Output: ${usage.completionTokens}, Total: ${usage.totalTokens}`);
+          
+          const logResponse = await fetch(`${CENTRAL_API_URL}/api/v1/mcp-chat/log-usage`, {
+            method: 'POST',
+            headers: {
+              'Authorization': authToken,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              chat_id: id,
+              model_id: selectedModel,
+              input_tokens: usage.promptTokens,
+              output_tokens: usage.completionTokens,
+              session_type: 'mcp_chat'
+            })
+          });
+
+          if (!logResponse.ok) {
+            console.error('[Token Usage] Failed to log token usage:', logResponse.statusText);
+          } else {
+            console.log('[Token Usage] ✓ Usage logged successfully');
+          }
+        } catch (error) {
+          console.error('[Token Usage] Error logging token usage:', error);
+          // Don't fail the request if logging fails
+        }
+      }
+      
       const allMessages = appendResponseMessages({
         messages,
         responseMessages: response.messages,
       });
 
-      // Generate title using the same model if it's a new chat
+      // Generate title for new chats
       let title: string | undefined;
       if (isNewChat && allMessages.length >= 2) {
         try {
           const userMessage = allMessages.find(m => m.role === 'user');
           if (userMessage) {
-            // Helper to extract text from message parts
             const getMessageText = (msg: any): string => {
               if (msg.parts && Array.isArray(msg.parts)) {
                 return msg.parts
@@ -174,7 +252,6 @@ Multiple tools can be used in a single response and multiple steps can be used t
 
             const messageText = getMessageText(userMessage);
             if (messageText.trim()) {
-              // Use the same model to generate title
               const { generateObject } = await import('ai');
               const { z } = await import('zod');
               
@@ -204,13 +281,10 @@ Multiple tools can be used in a single response and multiple steps can be used t
       const dbMessages = convertToDBMessages(allMessages, id);
       await saveMessages({ messages: dbMessages });
 
-      // Clean up resources - now this just closes the client connections
-      // not the actual servers which persist in the MCP context
       await cleanup();
     }
   });
 
-  // Ensure cleanup happens if the request is terminated early
   req.signal.addEventListener('abort', async () => {
     if (!responseCompleted) {
       console.log("Request aborted, cleaning up resources");
@@ -223,7 +297,7 @@ Multiple tools can be used in a single response and multiple steps can be used t
   });
 
   result.consumeStream()
-  // Add chat ID to response headers so client can know which chat was created
+  
   return result.toDataStreamResponse({
     sendReasoning: true,
     headers: {
@@ -233,6 +307,9 @@ Multiple tools can be used in a single response and multiple steps can be used t
       if (error instanceof Error) {
         if (error.message.includes("Rate limit")) {
           return "Rate limit exceeded. Please try again later.";
+        }
+        if (error.message.includes("Token limit")) {
+          return "You have reached your token limit. Please upgrade your plan.";
         }
       }
       console.error(error);

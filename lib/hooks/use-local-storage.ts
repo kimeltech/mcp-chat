@@ -30,6 +30,24 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
     }
   }, [key, isBrowser]);
 
+  // Listen for storage events (both from other tabs and manual dispatches)
+  useEffect(() => {
+    if (!isBrowser) return;
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === key && e.newValue !== null) {
+        try {
+          setStoredValue(parseJSON(e.newValue));
+        } catch (error) {
+          console.error(`Error parsing storage event for key "${key}":`, error);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [key, isBrowser]);
+
   // Return a wrapped version of useState's setter function that
   // persists the new value to localStorage.
   const setValue = useCallback((value: SetValue<T>) => {

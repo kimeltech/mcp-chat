@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useRef } from "react";
+import { createContext, useContext, useRef, useEffect } from "react";
 import { useLocalStorage } from "@/lib/hooks/use-local-storage";
 import { OAuth2Tokens } from "@/lib/oauth2-client";
 
@@ -255,6 +255,44 @@ export function MCPProvider({ children }: { children: React.ReactNode }) {
 
   // Calculate mcpServersForApi based on current state
   const mcpServersForApi = getActiveServersForApi();
+  
+  // Listen for MCP configuration updates from McpAutoConfigurator
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const handleMcpConfigUpdate = async (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { serverId, action } = customEvent.detail;
+      console.log('[MCPProvider] Received mcp-config-updated event:', { serverId, action });
+      
+      if (action === 'start' && serverId) {
+        // Wait for state to sync from storage event
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Re-read from localStorage to ensure we have latest data
+        const storedServers = localStorage.getItem(STORAGE_KEYS.MCP_SERVERS);
+        const servers = storedServers ? JSON.parse(storedServers) : [];
+        const serverExists = servers.find((s: MCPServer) => s.id === serverId);
+        
+        console.log('[MCPProvider] Server exists in localStorage:', !!serverExists);
+        console.log('[MCPProvider] Current mcpServers state:', mcpServers.length);
+        
+        if (serverExists) {
+          // Trigger server start
+          console.log('[MCPProvider] Starting server:', serverId);
+          await startServer(serverId);
+        } else {
+          console.error('[MCPProvider] Server not found:', serverId);
+        }
+      }
+    };
+    
+    window.addEventListener('mcp-config-updated', handleMcpConfigUpdate);
+    
+    return () => {
+      window.removeEventListener('mcp-config-updated', handleMcpConfigUpdate);
+    };
+  }, [startServer, mcpServers]);
 
   return (
     <MCPContext.Provider
